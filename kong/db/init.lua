@@ -448,6 +448,7 @@ do
 
     local run_up = options.run_up
     local run_teardown = options.run_teardown
+    local suppress_teardown = options.suppress_teardown
 
     if not run_up and not run_teardown then
       error("options.run_up or options.run_teardown must be given", 2)
@@ -497,10 +498,12 @@ do
           end
 
           local state = "executed"
-          if strategy_migration.teardown then
-            -- this migration has a teardown step for later
-            state = "pending"
-            n_pending = n_pending + 1
+          if not suppress_teardown then
+            if strategy_migration.teardown then
+              -- this migration has a teardown step for later
+              state = "pending"
+              n_pending = n_pending + 1
+            end
           end
 
           ok, err = self.connector:record_migration(t.subsystem, mig.name,
@@ -558,9 +561,13 @@ do
           end
         end
 
-        log("%s migrated up to: %s %s", t.subsystem, mig.name,
-            strategy_migration.teardown
-            and not run_teardown and "(pending)" or "(executed)")
+        if suppress_teardown then
+          log("%s migrated up to: %s (executed)", t.subsystem, mig.name)
+        else
+          log("%s migrated up to: %s %s", t.subsystem, mig.name,
+              strategy_migration.teardown and not run_teardown and "(pending)"
+                                                                or "(executed)")
+        end
 
         n_migrations = n_migrations + 1
       end
@@ -586,7 +593,7 @@ do
       log("%d executed", n_executed)
     end
 
-    if n_pending > 0 then
+    if not suppress_teardown and n_pending > 0 then
       log("%d pending", n_pending)
     end
 
