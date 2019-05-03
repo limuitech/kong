@@ -474,7 +474,7 @@ return {
 
       worker_events.register(function(data)
         log(DEBUG, "[events] Plugin updated, invalidating plugins map")
-        cache:invalidate("plugins_map:version")
+        cache:invalidate("plugins:version")
       end, "crud", "plugins")
 
 
