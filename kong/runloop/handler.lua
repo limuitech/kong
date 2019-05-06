@@ -631,6 +631,7 @@ return {
     before = function()
       reports.init_worker()
 
+      register_events()
 
       -- initialize balancers for active healthchecks
       timer_at(0, function()
