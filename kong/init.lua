@@ -118,10 +118,11 @@ local PLUGINS_MUTEX_OPTS
 local declarative_entities
 local loaded_plugins
 local plugins
+local plugins_version
 local schema_state
 
 
-local function plugin_protocols_match_current_subsystem(plugin)
+local function should_process_plugin(plugin)
   local c = constants.PROTOCOLS_WITH_SUBSYSTEM
   for _, protocol in ipairs(plugin.protocols) do
     if c[protocol] == subsystem then
@@ -156,11 +157,10 @@ local function get_loaded_plugins()
 end
 
 
-local function build_new_plugins(version)
+local function build_plugins(version)
   loaded_plugins = loaded_plugins or get_loaded_plugins()
 
   local new_plugins = {
-    version = version,
     map = {},
     cache = {},
     loaded = loaded_plugins,
@@ -191,7 +191,7 @@ local function build_new_plugins(version)
       return nil, err
     end
 
-    if plugin_protocols_match_current_subsystem(plugin) then
+    if should_process_plugin(plugin) then
       new_plugins.map[plugin.name] = true
       local cache_key = kong.db.plugins:cache_key(plugin)
       new_plugins.cache[cache_key] = plugin
@@ -220,7 +220,13 @@ local function build_new_plugins(version)
     end
   end
 
-  return new_plugins
+  if version then
+    plugins_version = version
+  end
+
+  plugins = new_plugins
+
+  return true
 end
 
 
@@ -243,12 +249,10 @@ local function update_plugins(version)
       end
 
       if not plugins or plugins.version ~= version then
-        local new_plugins, err = build_new_plugins(version)
-
-        if not new_plugins then
+        local ok, err = build_plugins(version)
+        if not ok then
           return nil, "error found when building plugins: " .. err
         end
-        plugins = new_plugins
       end
 
       return true
@@ -341,9 +345,8 @@ local function load_declarative_config(kong_config, entities)
 
   if not kong_config.declarative_config then
     -- no configuration yet, just build empty plugins map
-    local err
-    plugins, err = build_new_plugins(utils.uuid())
-    if err then
+    local ok, err = build_plugins(utils.uuid())
+    if not ok then
       error("error building initial plugins: " .. err)
     end
     return true
@@ -366,8 +369,8 @@ local function load_declarative_config(kong_config, entities)
     kong.log.notice("declarative config loaded from ",
                     kong_config.declarative_config)
 
-    plugins, err = build_new_plugins(utils.uuid())
-    if err then
+    ok, err = build_plugins(utils.uuid())
+    if not ok then
       error("error building initial plugins: " .. err)
     end
 
@@ -513,9 +516,8 @@ function Kong.init()
     end
 
   else
-    local err
-    plugins, err = build_new_plugins("init")
-    if err then
+    local ok, err = build_plugins("init")
+    if not ok then
       error("error building initial plugins: " .. err)
     end
 
