@@ -118,7 +118,6 @@ local PLUGINS_MUTEX_OPTS
 local declarative_entities
 local loaded_plugins
 local plugins
-local plugins_version
 local schema_state
 
 
@@ -218,10 +217,6 @@ local function build_plugins(version)
         new_plugins.phases.init_worker[plugin.name] = true
       end
     end
-  end
-
-  if version then
-    plugins_version = version
   end
 
   plugins = new_plugins
